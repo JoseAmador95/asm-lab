@@ -1,36 +1,118 @@
-# Lecture 2: Thumb Data Operations
+# Lecture 2: Thumb Data Operations - Deep Dive
 
-## Data Movement
-- `MOV Rd, Rm`: Copy register Rm to Rd (16-bit)
-- `MOV Rd, #imm`: Load 8-bit immediate (0-255 for 16-bit Thumb)
-- `LDR Rd, =value`: Load 32-bit value/address (pseudo-instruction)
-- `LDR Rd, [Rn, #offset]`: Load 32-bit value from memory at Rn + offset
-- `STR Rd, [Rn, #offset]`: Store 32-bit value from Rd to memory at Rn + offset
+## 2.1 Instruction Set Basics
+### Thumb vs Thumb-2
+- Original Thumb (ARMv6-M, Cortex-M0): Only 16-bit instructions, limited immediate support
+- Thumb-2 (ARMv7-M, Cortex-M3/M4): Mixed 16/32-bit instructions, full 32-bit immediate support
+- All code here uses **Thumb-2** via `.syntax unified` (enables mixed 16/32-bit ops)
 
-## Examples
+### Why `.syntax unified`?
+- Old Thumb syntax required separate 16/32-bit mnemonics
+- Unified syntax auto-selects 16-bit (if possible) or 32-bit instructions
+- *Always* include `.syntax unified` and `.thumb` at the top of your files
+
+---
+
+## 2.2 Data Movement Instructions
+### 2.2.1 Register-to-Register: `MOV`, `MVN`
+| Instruction | Syntax | Description | Flag Impact |
+|-------------|---------|-------------|-------------|
+| `MOV` | `MOV Rd, Rm` / `MOV Rd, #imm` | Copy Rm to Rd, or load 8-bit immediate (0-255) | No flags modified |
+| `MVN` | `MVN Rd, Rm` | Move *negated* Rm to Rd (bitwise NOT) | No flags modified |
+
+Example:
 ```assembly
 .syntax unified
 .thumb
-
-main:
-    MOV R0, #0x12         ; R0 = 0x12 (8-bit imm)
-    LDR R1, =0x12345678   ; R1 = 0x12345678 (32-bit imm)
-    LDR R2, =0x20000000   ; R2 = RAM base address
-    STR R0, [R2]          ; Store R0 to RAM[0x20000000]
-    LDR R3, [R2]          ; R3 = RAM[0x20000000] (0x12)
+MOV R0, #0x12       @ R0 = 0x12 (8-bit immediate, 16-bit instruction)
+MOV R1, R0          @ R1 = R0 = 0x12
+MVN R2, R1          @ R2 = ~0x12 = 0xFFFFFFED (32-bit instruction)
 ```
 
-## Arithmetic
-- `ADD Rd, Rn, Rm`: Rd = Rn + Rm
-- `ADD Rd, Rn, #imm`: Rd = Rn + 8-bit immediate
-- `SUB Rd, Rn, Rm`: Rd = Rn - Rm
-- `CMP Rn, Rm`: Compare Rn and Rm (sets flags, no result stored)
+### 2.2.2 Load Immediate: `LDR Rd, =imm` (Pseudo-Instruction)
+- `MOV` only supports 8-bit immediates (0-255)
+- `LDR =` loads *any* 32-bit value by placing it in a **literal pool** (constant data in flash)
+- The assembler automatically generates the literal pool unless you specify otherwise
 
-## Flags
-- N (Negative): Result bit 31 set
-- Z (Zero): Result is 0
-- C (Carry): Unsigned overflow
-- V (Overflow): Signed overflow
+Example:
+```assembly
+LDR R0, =0x12345678 @ R0 = 0x12345678 (32-bit, uses literal pool)
+LDR R1, =my_label   @ R1 = address of my_label (for accessing global variables)
+```
 
-## Lab 2 Preview
-Add 0x1234 + 0x5678, store result to RAM, verify with QEMU monitor.
+### 2.2.3 Memory Access: `LDR`/`STR` (Load/Store)
+Cortex-M3 uses a **load-store architecture**: all arithmetic operates on registers, only `LDR`/`STR` access memory.
+
+| Instruction | Syntax | Description | Alignment Rule |
+|-------------|---------|-------------|-----------------|
+| `LDR` | `LDR Rd, [Rn, #offset]` | Load 32-bit word from Rn+offset to Rd | Must be 4-byte aligned |
+| `STR` | `STR Rd, [Rn, #offset]` | Store 32-bit word from Rd to Rn+offset | Must be 4-byte aligned |
+| `LDRB`/`STRB` | `LDRB Rd, [Rn]` | Load/store 8-bit byte | No alignment needed |
+| `LDRH`/`STRH` | `LDRH Rd, [Rn]` | Load/store 16-bit halfword | 2-byte aligned |
+
+Literal Pool Note: The assembler places literal pools at the end of sections. If you get a "literal pool overflow" error, add a `.ltorg` directive to force a pool earlier.
+
+Example:
+```assembly
+LDR R0, =0x20000000   @ R0 = RAM base address (0x20000000)
+MOV R1, #0x1234       @ R1 = 0x1234
+STR R1, [R0]          @ RAM[0x20000000] = 0x1234
+LDR R2, [R0]          @ R2 = RAM[0x20000000] = 0x1234
+```
+
+---
+
+## 2.3 Arithmetic Instructions
+All arithmetic ops only work on registers (no memory operands).
+
+| Instruction | Syntax | Description | Flags Modified (N/Z/C/V) |
+|-------------|---------|-------------|---------------------------|
+| `ADD` | `ADD Rd, Rn, Rm`/`ADD Rd, Rn, #imm` | Rd = Rn + Rm/imm | N/Z/C/V |
+| `SUB` | `SUB Rd, Rn, Rm`/`SUB Rd, Rn, #imm` | Rd = Rn - Rm/imm | N/Z/C/V |
+| `ADC` | `ADC Rd, Rn, Rm` | Rd = Rn + Rm + Carry | N/Z/C/V (for multi-word add) |
+| `SBC` | `SBC Rd, Rn, Rm` | Rd = Rn - Rm - NOT Carry | N/Z/C/V (for multi-word sub) |
+| `RSB` | `RSB Rd, Rn, #imm` | Rd = imm - Rn (reverse subtract) | N/Z/C/V |
+| `MUL` | `MUL Rd, Rm, Rn` | Rd = Rm * Rn (32-bit result) | N/Z (C/V undefined) |
+| `CMP` | `CMP Rn, Rm` | Compare Rn and Rm (sets flags, discards result) | N/Z/C/V |
+| `CMN` | `CMN Rn, Rm` | Compare negative (sets flags for Rn + Rm) | N/Z/C/V |
+
+### Flag Details (xPSR Register)
+| Flag | Name | Set When... |
+|------|------|-------------|
+| N | Negative | Result bit 31 is 1 (result is negative in 2's complement) |
+| Z | Zero | Result is 0 |
+| C | Carry | Unsigned overflow (e.g., 0xFFFFFFFF + 1 = 0x100000000, C=1) |
+| V | Overflow | Signed overflow (e.g., 0x7FFFFFFF + 1 = 0x80000000, V=1) |
+
+Example:
+```assembly
+MOV R0, #5
+MOV R1, #3
+CMP R0, R1       @ R0 (5) vs R1 (3): Z=0, N=0, C=1 (5>3 unsigned)
+BEQ equal        @ Not taken (Z=0)
+BGT greater      @ Taken (N=0, V=0, 5>3 signed)
+```
+
+---
+
+## 2.4 Memory Access Rules
+1. **Alignment**: 32-bit `LDR`/`STR` require 4-byte aligned addresses (last 2 bits of address = 0)
+   - Misaligned access triggers a `HardFault` exception
+2. **Load-Store Only**: No direct memory-to-memory operations (e.g., `ADD [R0], [R1]` is invalid)
+3. **Endianness**: Cortex-M3 is little-endian by default (least significant byte at lowest address)
+
+---
+
+## 2.5 Key Takeaways
+1. Use `LDR =` for 32-bit immediates, `MOV` for 8-bit immediates
+2. All arithmetic operates on registers, use `LDR`/`STR` for memory
+3. `CMP` sets flags for conditional branches, no result stored
+4. Always align 32-bit memory accesses to 4 bytes
+
+## 2.6 Common Pitfalls
+- Using `MOV R0, #0x1234` (0x1234 > 255) → assembler error
+- Forgetting `.syntax unified` → 32-bit `LDR =` may not work
+- Misaligned `LDR`/`STR` → HardFault on Cortex-M3
+
+## 2.7 Next Steps
+Read **Lecture 3 (Control Flow)** then complete **Lab 2 (Arithmetic + RAM Storage)**.
