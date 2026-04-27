@@ -1,0 +1,31 @@
+AS = arm-none-eabi-as
+LD = arm-none-eabi-ld
+GDB = arm-none-eabi-gdb
+
+AFLAGS = -mcpu=cortex-m3 -mthumb -g
+LDFLAGS = -T ../../common/linker.ld
+
+COMMON_DIR = ../../common
+LAB_NAME = $(notdir $(CURDIR))
+OBJ_FILES = $(LAB_NAME).o $(COMMON_DIR)/startup.o
+
+all: $(LAB_NAME).elf
+
+%.o: %.s
+	$(AS) $(AFLAGS) -o $@ $<
+
+$(COMMON_DIR)/startup.o: $(COMMON_DIR)/startup.s
+	$(AS) $(AFLAGS) -o $@ $<
+
+$(LAB_NAME).elf: $(OBJ_FILES)
+	$(LD) $(LDFLAGS) -o $@ $^
+
+debug: $(LAB_NAME).elf
+	qemu-system-arm -machine lm3s6965evb -cpu cortex-m3 -kernel $(LAB_NAME).elf -nographic -s -S &
+	sleep 1
+	$(GDB) -ex "target remote localhost:1234" -ex "file $(LAB_NAME).elf" -ex "break Reset_Handler" -ex "continue"
+
+clean:
+	rm -f *.o *.elf
+
+.PHONY: all debug clean
