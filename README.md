@@ -1,61 +1,61 @@
 # ARM Thumb Assembly for Embedded Systems
 
-Aprende programación en ensamblador ARM Thumb aplicado a sistemas embebidos (Cortex-M). Incluye lecturas teóricas y laboratorios prácticos ejecutables en macOS (Intel) usando QEMU.
+Learn ARM Thumb assembly programming for embedded systems (Cortex-M). Includes theoretical readings and hands-on labs executable on macOS (Intel) using QEMU.
 
-## Requisitos
+## Prerequisites
 
 ```bash
 brew install arm-none-eabi-gcc qemu
 ```
 
-## Estructura
+## Structure
 
 ```
 asm/
-├── docs/          # Lecturas teóricas
-├── labs/          # Ejercicios de laboratorio
-└── common/        # Herramientas compartidas (linker, startup, script)
+├── docs/          # Theoretical readings
+├── labs/          # Lab exercises
+└── common/        # Shared tools (linker, startup, script)
 ```
 
-## Contenido
+## Content
 
-### Lecturas (`docs/`)
-1. **01_intro_thumb_embedded.md** - Introducción, registros Cortex-M3, vector table, herramientas
-2. **02_data_ops.md** - MOV, LDR, STR, ADD, SUB, CMP y flags
-3. **03_control_flow.md** - B, BL, condicionales, loops
-4. **04_subroutines_stack.md** - Subrutinas, PUSH/POP, convenciones AAPCS
-5. **05_bare_metal_io.md** - I/O mapeado en memoria (UART, GPIO)
+### Readings (`docs/`)
+1. **01_intro_thumb_embedded.md** - Introduction, Cortex-M3 registers, vector table, toolchain
+2. **02_data_ops.md** - MOV, LDR, STR, ADD, SUB, CMP and flags
+3. **03_control_flow.md** - B, BL, conditionals, loops
+4. **04_subroutines_stack.md** - Subroutines, PUSH/POP, AAPCS conventions
+5. **05_bare_metal_io.md** - Memory-mapped I/O (UART, GPIO)
 
-### Laboratorios (`labs/`)
-| Lab | Tema | Verificación |
-|-----|------|--------------|
-| 1 | Escribir 'A' en UART0 | Salida serial en QEMU |
-| 2 | Sumar 0x1234 + 0x5678 → RAM | Monitor QEMU: `x/1wx 0x20000000` |
-| 3 | Loop 0-9 → array en RAM | Monitor QEMU verifica array |
-| 4 | Subrutina suma 5+7 | Monitor QEMU verifica R0 |
-| 5 | Blinky GPIO (LED parpadeante) | Monitor QEMU verifica pin |
+### Labs (`labs/`)
+| Lab | Topic | Verification |
+|-----|-------|--------------|
+| 1 | Write 'A' to UART0 | Serial output in QEMU |
+| 2 | Add 0x1234 + 0x5678 → RAM | QEMU monitor: `x/1wx 0x20000000` |
+| 3 | Loop 0-9 → RAM array | QEMU monitor verifies array |
+| 4 | Subroutine to add 5+7 | QEMU monitor verifies R0 |
+| 5 | GPIO Blinky (flashing LED) | QEMU monitor verifies pin state |
 
-## Uso
+## Usage
 
-### Ejecutar un laboratorio
+### Run a lab
 ```bash
 ./common/run_lab.sh labs/lab1/lab1.s
 ```
 
-### Depurar con GDB (incluye info DWARF)
+### Debug with GDB (includes DWARF debug info)
 ```bash
 ./common/run_lab.sh --debug labs/lab1/lab1.s
 ```
 
-### Usar Makefile por laboratorio
+### Use per-lab Makefile
 ```bash
 cd labs/lab1
-make          # Ensambla y vincula
-make debug    # Ejecuta con GDB
-make clean    # Elimina archivos generados
+make          # Assemble and link
+make debug    # Run with GDB
+make clean    # Remove generated files
 ```
 
-## Notas
-- Todos los ejecutables incluyen información de depuración (`-g` flag)
-- Los archivos generados (`*.o`, `*.elf`) están en `.gitignore`
-- Se emula la placa **lm3s6965evb** (Cortex-M3) vía QEMU
+## Notes
+- All executables include debug information (`-g` flag)
+- Generated files (`*.o`, `*.elf`) are in `.gitignore`
+- Emulates the **lm3s6965evb** (Cortex-M3) board via QEMU
