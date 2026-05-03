@@ -76,9 +76,10 @@ arm-none-eabi-as -mcpu=cortex-m3 -mthumb -g -o output.o input.s
 ### 1.4.2 Linker: `arm-none-eabi-ld`
 Combines object files with a linker script to produce a bare-metal executable (`.elf`):
 ```bash
-arm-none-eabi-ld -T common/linker.ld -o output.elf startup.o labX.o
+arm-none-eabi-ld -T common/linker.ld -o output.elf startup.o semihosting.o labX.o
 ```
 - `-T common/linker.ld`: Uses our custom memory map (flash @ 0x00000000, RAM @ 0x20000000)
+- `semihosting.o` must be included in every lab (provides `semi_write0`, `semi_print_hex`, `semi_print_dec`, `semi_exit`)
 - `.elf` format includes debug info, memory sections, and symbol tables
 
 ### 1.4.3 Debug Info Tools
@@ -88,7 +89,7 @@ arm-none-eabi-ld -T common/linker.ld -o output.elf startup.o labX.o
 ### 1.4.4 QEMU: `qemu-system-arm`
 Emulates the `lm3s6965evb` Cortex-M3 board:
 ```bash
-qemu-system-arm -machine lm3s6965evb -cpu cortex-m3 -kernel labX.elf -nographic
+qemu-system-arm -machine lm3s6965evb -cpu cortex-m3 -kernel labX.elf -nographic -semihosting
 ```
 | Flag | Purpose |
 |------|---------|
@@ -96,8 +97,50 @@ qemu-system-arm -machine lm3s6965evb -cpu cortex-m3 -kernel labX.elf -nographic
 | `-cpu cortex-m3` | Explicit CPU (redundant but clear) |
 | `-kernel labX.elf` | Load bare-metal ELF directly |
 | `-nographic` | Use serial output (no GUI) |
+| `-semihosting` | Enable ARM semihosting (allows `BKPT 0xAB` syscalls to reach the host) |
 | `-s` | Start GDB stub on TCP port 1234 |
 | `-S` | Freeze CPU at startup (wait for GDB `continue`) |
+
+---
+
+## 1.5 ARM Semihosting
+Semihosting lets bare-metal code make calls to the host (QEMU) using a special breakpoint instruction (`BKPT 0xAB`). This is how all labs print output to the terminal without a real UART driver.
+
+### How it works
+1. The guest puts an operation number in `r0` and a pointer to arguments in `r1`
+2. Executes `BKPT 0xAB` — QEMU intercepts the breakpoint instead of treating it as a fault
+3. QEMU performs the requested operation (write string, exit, etc.) on the host side
+
+### Semihosting helpers (`common/semihosting.s`)
+| Function | Arguments | Description |
+|---|---|---|
+| `semi_write0` | `r0` = ptr to null-terminated string | Print string to stdout |
+| `semi_print_hex` | `r0` = 32-bit value | Print value as `0x????????\n` |
+| `semi_print_dec` | `r0` = 32-bit unsigned value | Print value as decimal + `\n` |
+| `semi_exit` | (none) | Terminate QEMU cleanly |
+
+### Usage example
+```assembly
+.syntax unified
+.thumb
+.global main
+.type main, %function
+.thumb_func
+main:
+    ldr  r0, =msg
+    bl   semi_write0    @ print string
+    mov  r0, #42
+    bl   semi_print_dec @ print "42\n"
+    bl   semi_exit      @ terminate QEMU
+
+.section .rodata
+msg:
+    .asciz "Hello!\n"
+```
+
+### Important
+- `-semihosting` flag is **required** in all QEMU invocations (already set in all Makefiles and `run_lab.sh`)
+- `semihosting.o` must be linked in every lab (already included in all Makefiles and `run_lab.sh`)
 
 ---
 
@@ -105,7 +148,7 @@ qemu-system-arm -machine lm3s6965evb -cpu cortex-m3 -kernel labX.elf -nographic
 Example session for Lab 1:
 1. Start QEMU in debug mode:
    ```bash
-   qemu-system-arm -machine lm3s6965evb -cpu cortex-m3 -kernel lab1.elf -nographic -s -S
+   qemu-system-arm -machine lm3s6965evb -cpu cortex-m3 -kernel lab1.elf -nographic -semihosting -s -S
    ```
 2. Connect GDB in another terminal:
    ```bash
@@ -133,4 +176,4 @@ Example session for Lab 1:
 - Mixing ARM and Thumb instructions → undefined behavior on Cortex-M
 
 ## 1.8 Next Steps
-Read **Lecture 2 (Data Operations)** then complete **Lab 1 (UART Output)**.
+Read **Lecture 2 (Data Operations)** then complete **Lab 1 (Semihosting Hello World)**.

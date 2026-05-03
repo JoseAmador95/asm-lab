@@ -62,40 +62,31 @@ LDR R2, [R0]          @ R2 = RAM[0x20000000] = 0x1234
 
 ---
 
-## 2.3 Arithmetic Instructions
-All arithmetic ops only work on registers (no memory operands).
-
-| Instruction | Syntax | Description | Flags Modified (N/Z/C/V) |
-|-------------|---------|-------------|---------------------------|
-| `ADD` | `ADD Rd, Rn, Rm`/`ADD Rd, Rn, #imm` | Rd = Rn + Rm/imm | N/Z/C/V |
-| `SUB` | `SUB Rd, Rn, Rm`/`SUB Rd, Rn, #imm` | Rd = Rn - Rm/imm | N/Z/C/V |
-| `ADC` | `ADC Rd, Rn, Rm` | Rd = Rn + Rm + Carry | N/Z/C/V (for multi-word add) |
-| `SBC` | `SBC Rd, Rn, Rm` | Rd = Rn - Rm - NOT Carry | N/Z/C/V (for multi-word sub) |
-| `RSB` | `RSB Rd, Rn, #imm` | Rd = imm - Rn (reverse subtract) | N/Z/C/V |
-| `MUL` | `MUL Rd, Rm, Rn` | Rd = Rm * Rn (32-bit result) | N/Z (C/V undefined) |
-| `CMP` | `CMP Rn, Rm` | Compare Rn and Rm (sets flags, discards result) | N/Z/C/V |
-| `CMN` | `CMN Rn, Rm` | Compare negative (sets flags for Rn + Rm) | N/Z/C/V |
-
-### Flag Details (xPSR Register)
-| Flag | Name | Set When... |
-|------|------|-------------|
-| N | Negative | Result bit 31 is 1 (result is negative in 2's complement) |
-| Z | Zero | Result is 0 |
-| C | Carry | Unsigned overflow (e.g., 0xFFFFFFFF + 1 = 0x100000000, C=1) |
-| V | Overflow | Signed overflow (e.g., 0x7FFFFFFF + 1 = 0x80000000, V=1) |
-
-Example:
+## 2.4 Lab 2 — Arithmetic and Output
+Lab 2 adds two values and prints the result via semihosting:
 ```assembly
-MOV R0, #5
-MOV R1, #3
-CMP R0, R1       @ R0 (5) vs R1 (3): Z=0, N=0, C=1 (5>3 unsigned)
-BEQ equal        @ Not taken (Z=0)
-BGT greater      @ Taken (N=0, V=0, 5>3 signed)
+LDR  R0, =0x1234        @ First operand
+LDR  R1, =0x5678        @ Second operand
+ADD  R2, R0, R1         @ R2 = 0x68AC
+
+LDR  R3, =0x20000000
+STR  R2, [R3]           @ also store result to RAM
+
+ldr  r0, =msg_result
+bl   semi_write0        @ print label
+mov  r0, r2
+bl   semi_print_hex     @ print "0x000068ac\n"
+
+bl   semi_exit
+
+.section .rodata
+msg_result:
+    .asciz "ADD result: "
 ```
-
----
-
-## 2.4 Memory Access Rules
+Expected output:
+```
+ADD result: 0x000068ac
+```
 1. **Alignment**: 32-bit `LDR`/`STR` require 4-byte aligned addresses (last 2 bits of address = 0)
    - Misaligned access triggers a `HardFault` exception
 2. **Load-Store Only**: No direct memory-to-memory operations (e.g., `ADD [R0], [R1]` is invalid)
@@ -115,4 +106,4 @@ BGT greater      @ Taken (N=0, V=0, 5>3 signed)
 - Misaligned `LDR`/`STR` → HardFault on Cortex-M3
 
 ## 2.7 Next Steps
-Read **Lecture 3 (Control Flow)** then complete **Lab 2 (Arithmetic + RAM Storage)**.
+Read **Lecture 3 (Control Flow)** then complete **Lab 2 (Arithmetic + Semihosting Output)**.

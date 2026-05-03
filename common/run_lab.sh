@@ -53,16 +53,21 @@ LAB_BASENAME=$(basename "$LAB_FILE" .s)
 LAB_DIR=$(dirname "$LAB_FILE")
 OBJ_FILE="$LAB_DIR/$LAB_BASENAME.o"
 STARTUP_OBJ="$COMMON_DIR/startup.o"
+SEMIHOSTING_OBJ="$COMMON_DIR/semihosting.o"
+SEMIHOSTING_SCRIPT="$COMMON_DIR/semihosting.s"
 ELF_FILE="$LAB_DIR/$LAB_BASENAME.elf"
 
 echo "Assembling startup script..."
 arm-none-eabi-as -mcpu=cortex-m3 -mthumb -g -o "$STARTUP_OBJ" "$STARTUP_SCRIPT"
 
+echo "Assembling semihosting helpers..."
+arm-none-eabi-as -mcpu=cortex-m3 -mthumb -g -o "$SEMIHOSTING_OBJ" "$SEMIHOSTING_SCRIPT"
+
 echo "Assembling $LAB_FILE..."
 arm-none-eabi-as -mcpu=cortex-m3 -mthumb -g -o "$OBJ_FILE" "$LAB_FILE"
 
 echo "Linking object files..."
-arm-none-eabi-ld -T "$LINKER_SCRIPT" -o "$ELF_FILE" "$STARTUP_OBJ" "$OBJ_FILE"
+arm-none-eabi-ld -T "$LINKER_SCRIPT" -o "$ELF_FILE" "$STARTUP_OBJ" "$SEMIHOSTING_OBJ" "$OBJ_FILE"
 
 if $DEBUG_MODE; then
     if ! command -v arm-none-eabi-gdb &> /dev/null; then
@@ -74,7 +79,7 @@ if $DEBUG_MODE; then
         echo "Warning: No debug info found in $ELF_FILE."
     fi
     echo "Starting QEMU in debug mode (halted, GDB stub on :1234)..."
-    qemu-system-arm -machine lm3s6965evb -cpu cortex-m3 -kernel "$ELF_FILE" -nographic -monitor stdio -s -S &
+    qemu-system-arm -machine lm3s6965evb -cpu cortex-m3 -kernel "$ELF_FILE" -nographic -semihosting -monitor stdio -s -S &
     QEMU_PID=$!
     sleep 1
     echo "Launching arm-none-eabi-gdb..."
@@ -82,5 +87,5 @@ if $DEBUG_MODE; then
     kill $QEMU_PID 2>/dev/null || true
 else
     echo "Running $ELF_FILE on QEMU (lm3s6965evb)..."
-    qemu-system-arm -machine lm3s6965evb -cpu cortex-m3 -kernel "$ELF_FILE" -nographic
+    qemu-system-arm -machine lm3s6965evb -cpu cortex-m3 -kernel "$ELF_FILE" -nographic -semihosting
 fi

@@ -62,7 +62,7 @@ BGT greater      @ Taken (N=0 == V=0, 5>3 signed)
 
 ## 3.3 Loop Patterns
 ### 3.3.1 Increment Loop (Lab 3 Style)
-Count up from 0 to N-1, store values to RAM array:
+Count up from 0 to N-1, store values to RAM array, then print each value:
 ```assembly
 .syntax unified
 .thumb
@@ -70,15 +70,46 @@ Count up from 0 to N-1, store values to RAM array:
 .type main, %function
 .thumb_func
 main:
-    MOV R0, #0             @ Counter = 0
-    LDR R1, =0x20000000   @ RAM array base
-    MOV R2, #10            @ Loop limit = 10 (0-9)
+    MOV  R0, #0             @ Counter = 0
+    LDR  R1, =0x20008000    @ RAM array base (above .bss to avoid collision)
+    MOV  R2, #10            @ Loop limit = 10 (0-9)
 loop:
-    STR R0, [R1], #4      @ Store counter to [R1], increment R1 by 4
-    ADD R0, R0, #1         @ Counter++
-    CMP R0, R2             @ Compare counter to limit
-    BNE loop               @ Branch if counter != 10
-    B .                    @ Infinite loop
+    STR  R0, [R1], #4       @ Store counter to [R1], increment R1 by 4
+    ADD  R0, R0, #1         @ Counter++
+    CMP  R0, R2             @ Compare counter to limit
+    BNE  loop               @ Branch if counter != 10
+
+    @ Print each stored value
+    ldr  r0, =msg_array
+    bl   semi_write0
+    LDR  R1, =0x20008000    @ Reset to array base
+    MOV  R2, #10
+    MOV  R3, #0             @ Index
+print_loop:
+    CMP  R3, R2
+    BGE  done
+    LDR  R0, [R1]           @ Load element
+    push {r1, r2, r3}
+    bl   semi_print_dec     @ Print value
+    pop  {r1, r2, r3}
+    ADD  R1, R1, #4
+    ADD  R3, R3, #1
+    B    print_loop
+done:
+    bl   semi_exit
+
+.section .rodata
+msg_array:
+    .asciz "Array contents (0-9):\n"
+```
+Expected output:
+```
+Array contents (0-9):
+0
+1
+2
+...
+9
 ```
 
 ### 3.3.2 Decrement Loop (More Efficient)
@@ -139,4 +170,4 @@ STR R1, [R0]
 - Overusing IT blocks → hard to read code for beginners
 
 ## 3.8 Next Steps
-Read **Lecture 4 (Subroutines/Stack)** then complete **Lab 3 (Loop + Array Storage)**.
+Read **Lecture 4 (Subroutines/Stack)** then complete **Lab 3 (Loop + Array + Semihosting Output)**.

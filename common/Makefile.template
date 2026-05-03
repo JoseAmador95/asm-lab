@@ -7,7 +7,7 @@ LDFLAGS = -T ../../common/linker.ld
 
 COMMON_DIR = ../../common
 LAB_NAME = $(notdir $(CURDIR))
-OBJ_FILES = $(LAB_NAME).o $(COMMON_DIR)/startup.o
+OBJ_FILES = $(LAB_NAME).o $(COMMON_DIR)/startup.o $(COMMON_DIR)/semihosting.o
 
 all: $(LAB_NAME).elf
 
@@ -17,15 +17,21 @@ all: $(LAB_NAME).elf
 $(COMMON_DIR)/startup.o: $(COMMON_DIR)/startup.s
 	$(AS) $(AFLAGS) -o $@ $<
 
+$(COMMON_DIR)/semihosting.o: $(COMMON_DIR)/semihosting.s
+	$(AS) $(AFLAGS) -o $@ $<
+
 $(LAB_NAME).elf: $(OBJ_FILES)
 	$(LD) $(LDFLAGS) -o $@ $^
 
+run: $(LAB_NAME).elf
+	qemu-system-arm -machine lm3s6965evb -cpu cortex-m3 -kernel $(LAB_NAME).elf -nographic -semihosting
+
 debug: $(LAB_NAME).elf
-	qemu-system-arm -machine lm3s6965evb -cpu cortex-m3 -kernel $(LAB_NAME).elf -nographic -s -S &
+	qemu-system-arm -machine lm3s6965evb -cpu cortex-m3 -kernel $(LAB_NAME).elf -nographic -semihosting -s -S &
 	sleep 1
 	$(GDB) -ex "target remote localhost:1234" -ex "file $(LAB_NAME).elf" -ex "break Reset_Handler" -ex "continue"
 
 clean:
 	rm -f *.o *.elf
 
-.PHONY: all debug clean
+.PHONY: all run debug clean

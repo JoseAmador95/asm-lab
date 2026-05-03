@@ -13,14 +13,30 @@ Example:
 .type main, %function
 .thumb_func
 main:
-    MOV R0, #5
-    MOV R1, #7
-    BL add_numbers   @ LR = address of B . (after BL), jump to add_numbers
-    B .              @ Return address lands here
+    MOV  R0, #5
+    MOV  R1, #7
+    BL   add_numbers        @ LR = return address, jump to add_numbers
+                            @ result in R0
+
+    push {r0}
+    ldr  r0, =msg_result
+    bl   semi_write0        @ print label
+    pop  {r0}
+    bl   semi_print_dec     @ print "12\n"
+
+    bl   semi_exit
 
 add_numbers:
-    ADD R0, R0, R1   @ R0 = 5 + 7 = 12
-    BX LR            @ Return to main
+    ADD  R0, R0, R1         @ R0 = 5 + 7 = 12
+    BX   LR                 @ Return to main
+
+.section .rodata
+msg_result:
+    .asciz "add_numbers(5, 7) = "
+```
+Expected output:
+```
+add_numbers(5, 7) = 12
 ```
 
 ---
@@ -126,4 +142,4 @@ A typical stack frame for a subroutine with local variables:
 - Stack overflow (no bounds checking on Cortex-M3) → HardFault
 
 ## 4.8 Next Steps
-Read **Lecture 5 (Bare-Metal I/O)** then complete **Lab 4 (Subroutine Call)**.
+Read **Lecture 5 (Bare-Metal I/O)** then complete **Lab 4 (Subroutine Call + Semihosting Output)**.
