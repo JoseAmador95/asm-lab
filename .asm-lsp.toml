@@ -1,0 +1,15 @@
+[default_config]
+assembler = "gas"
+instruction_set = "arm"
+
+[default_config.opts]
+compiler = "arm-none-eabi-gcc"
+diagnostics = true
+default_diagnostics = true
+compile_flags_txt = [
+  "-mcpu=cortex-m3",
+  "-mthumb",
+  "-mfloat-abi=soft",
+  "-x", "assembler-with-cpp",
+  "-g",
+]
